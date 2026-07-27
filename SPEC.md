@@ -2,13 +2,13 @@
 Basic Packet Layout for every Request
 | Field          | Bits | Expressable     |
 |----------------|------|-----------------|
+|TTL             |5     |0-31             |
 |Version         |3     |0-7              |
 |Sequence Number |32    |0-4,294,967,295  |
 |Type            |3     |0-7              |
 |Source SID      |96    |Trunc. SHA-256   |
 |Type-specific Fields (see below)
 |Signature       |512   |Ed25519 Signature|
-|TTL             |5     |0-31             |
 
 > ### Notes
 > Signature signs everything above it

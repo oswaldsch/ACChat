@@ -1,100 +1,81 @@
+from bitstream import BitHelper
+from constants import PROTOCOL_VERSION
+from packets import ForwardPacket, Packet, ParseResult, QueryPacket, MessagePacket, QueryResponsePacket
 import logging
 
-VERSION = 0
+logger = logging.getLogger("ACChat.parser")
 
-logger = logging.getLogger("ACChat")
-
-class BitHelper:
-    def __init__(self, data):
-        self.data = int.from_bytes(data, "big")
-        self.offset = 0
-        self.length = len(data) * 8
-
-    def read(self, amount):
-        shift = self.length - self.offset - amount
-        value = (self.data >> shift) & ((1 << amount) - 1)
-        self.offset += amount
-        return value
-
-    def write(self, value, amount):
-        if value >= (1 << amount):
-            raise ValueError(f"{value} does not fit into {amount} bits")
-
-        shift = self.length - self.offset - amount
-        mask = ((1 << amount) - 1) << shift
-
-        self.data &= ~mask
-        self.data |= value << shift
-
-        self.offset += amount
-
-    def change_offset(self, change):
-        self.offset += change
-
-    def to_bytes(self):
-        return self.data.to_bytes(self.length // 8, "big")
-
-def parse_packet(packet, own_sid):
+def parse_packet(packet, own_sid) -> ParseResult:
     helper = BitHelper(packet)
+    packet_data = {}
 
-    version = helper.read(3)
-    if version > VERSION:
-        logger.warning("Unsupported packet version %s received, dropping it", version)
-        return ("DROPPED", None)
+    packet_data["ttl"] = helper.read(5)
 
-    sequence_number = helper.read(32)
+    if packet_data["ttl"] == 0:
+        logger.info("Dropped packet because TTL expired")
+        return ParseResult(action="DROP", reason="TTL_EXPIRED")
+
+    packet_data["version"] = helper.read(3)
+    if packet_data["version"] > PROTOCOL_VERSION:
+        logger.warning("Unsupported packet version %s received, dropping it", packet_data["version"])
+        return ParseResult(action="DROP", reason="UNSUPPORTED_VERSION")
+
+    packet_data["sequence_number"] = helper.read(32)
     packet_type = helper.read(3)
-    source_sid = helper.read(96)
+    packet_data["source_sid"] = helper.read(96)
 
     if packet_type == 0:
-        target_sid = helper.read(96)
-        if target_sid == own_sid:
+        packet_data["target_sid"] = helper.read(96)
+        if packet_data["target_sid"] == own_sid:
             case = "RESPOND_TO_QUERY"
         else:
-            helper.read(512)
-            if not decrease_ttl(helper):
-                logger.info("Dropped packet %s from %s because TTL expired", sequence_number, source_sid)
-                return ("DROPPED", None)
-            return ("FORWARD", {"packet": helper.to_bytes(), "sequence_number": sequence_number})
+            return forward_or_drop(packet, packet_data)
     elif packet_type == 1:
-        target_sid = helper.read(96)
-        if target_sid == own_sid:
+        packet_data["target_sid"] = helper.read(96)
+        if packet_data["target_sid"] == own_sid:
             case = "QUERY_RESPONSE"
-            public_key = helper.read(256)
+            packet_data["public_key"] = helper.read(256)
         else:
-            helper.read(512)
-            if not decrease_ttl(helper):
-                logger.info("Dropped packet %s from %s because TTL expired", sequence_number, source_sid)
-                return ("DROPPED", None)
-            return ("FORWARD", {"packet": helper.to_bytes(), "sequence_number": sequence_number})
+            return forward_or_drop(packet, packet_data)
     elif packet_type == 2:
-        target_sid = helper.read(96)
+        packet_data["target_sid"] = helper.read(96)
         payload_length = helper.read(12)
-        payload = helper.read(payload_length)
-        if target_sid == own_sid:
+        packet_data["payload"] = helper.read(payload_length)
+        if packet_data["target_sid"] == own_sid:
             case = "MESSAGE_RECEIVED"
         else:
-            helper.read(512)
-            if not decrease_ttl(helper):
-                logger.info("Dropped packet %s from %s because TTL expired", sequence_number, source_sid)
-                return ("DROPPED", None)
-            return ("FORWARD", {"packet": helper.to_bytes(), "sequence_number": sequence_number})
+            return forward_or_drop(packet, packet_data)
     else:
         logger.warning("Malformed Packet (Expected type 0-2, got %s)", packet_type)
-        return ("DROPPED", None)
+        return ParseResult(action="DROP", reason="MALFORMED")
 
-    signature = helper.read(512)
+    packet_data["signature"] = helper.read(512)
+
     if case == "RESPOND_TO_QUERY":
-        return (case, {"signature": signature, "source_sid": source_sid, "sequence_number": sequence_number})
-    elif case == "QUERY_RESPONSE":
-        return (case, {"signature": signature, "source_sid": source_sid, "public_key": public_key, "sequence_number": sequence_number}) # pyright: ignore[reportPossiblyUnboundVariable]
-    elif case == "MESSAGE_RECEIVED":
-        return (case, {"signature": signature, "source_sid": source_sid, "payload": payload, "sequence_number": sequence_number}) # pyright: ignore[reportPossiblyUnboundVariable]
+        return ParseResult(action="RESPOND_TO_QUERY", packet=QueryPacket(**packet_data))
 
-def decrease_ttl(helper):
+    elif case == "QUERY_RESPONSE":
+        return ParseResult(action="SAVE_QUERY", packet=QueryResponsePacket(**packet_data))
+
+    elif case == "MESSAGE_RECEIVED":
+        return ParseResult(action="RECEIVED", packet=MessagePacket(**packet_data))  # pyright: ignore[reportArgumentType]
+
+def decrease_ttl(packet) -> bytes | None:
+    helper = BitHelper(packet)
+
     ttl = helper.read(5)
+
     if ttl == 0:
-        return False
+        return None
+
     helper.change_offset(-5)
-    helper.write(ttl-1, 5)
-    return True
+    helper.write(ttl - 1, 5)
+
+    return helper.to_bytes()
+
+def forward_or_drop(packet: bytes, packet_data: dict):
+    forwarded = decrease_ttl(packet)
+    if forwarded is None:
+        logger.info("Dropped packet %s from %s because TTL expired",packet_data["sequence_number"], packet_data["source_sid"])
+        return ParseResult(action="DROP", reason="TTL_EXPIRED")
+    return ParseResult(action="FORWARD", packet=ForwardPacket(data=forwarded, source_sid=packet_data["source_sid"], sequence_number=packet_data["sequence_number"]))
