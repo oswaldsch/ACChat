@@ -1,5 +1,5 @@
-from bitstream import BitWriter
-from constants import DEFAULT_TTL, PACKET_TYPE_QUERY_RESPONSE, PACKET_TYPE_SEND, PROTOCOL_VERSION, PACKET_TYPE_QUERY
+from .bitstream import BitWriter
+from .constants import DEFAULT_TTL, PACKET_TYPE_QUERY_RESPONSE, PACKET_TYPE_SEND, PROTOCOL_VERSION, PACKET_TYPE_QUERY
 
 def construct_packet(sequence_number: int, source_sid: bytes, packet_type: int):
     writer = BitWriter()

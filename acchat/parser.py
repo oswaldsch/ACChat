@@ -1,11 +1,11 @@
-from bitstream import BitHelper, BitWriter
-from constants import PROTOCOL_VERSION
-from packets import ForwardPacket, Packet, ParseResult, QueryPacket, MessagePacket, QueryResponsePacket
+from .bitstream import BitHelper, BitWriter
+from .constants import PROTOCOL_VERSION
+from .packets import ForwardPacket, Packet, ParseResult, QueryPacket, MessagePacket, QueryResponsePacket
 import logging
 
 logger = logging.getLogger("ACChat.parser")
 
-def parse_packet(packet, own_sid) -> ParseResult:
+def parse_packet(packet, own_sid: bytes) -> ParseResult:
     helper = BitHelper(packet)
     packet_data = {}
 
@@ -22,25 +22,25 @@ def parse_packet(packet, own_sid) -> ParseResult:
 
     packet_data["sequence_number"] = helper.read(32)
     packet_type = helper.read(3)
-    packet_data["source_sid"] = helper.read(96)
+    packet_data["source_sid"] = helper.read_bytes(12)
 
     if packet_type == 0:
-        packet_data["target_sid"] = helper.read(96)
+        packet_data["target_sid"] = helper.read_bytes(12)
         if packet_data["target_sid"] == own_sid:
             case = "RESPOND_TO_QUERY"
         else:
             return forward_or_drop(packet, packet_data)
     elif packet_type == 1:
-        packet_data["target_sid"] = helper.read(96)
+        packet_data["target_sid"] = helper.read_bytes(12)
         if packet_data["target_sid"] == own_sid:
             case = "QUERY_RESPONSE"
-            packet_data["public_key"] = helper.read(256)
+            packet_data["public_key"] = helper.read_bytes(32)
         else:
             return forward_or_drop(packet, packet_data)
     elif packet_type == 2:
-        packet_data["target_sid"] = helper.read(96)
+        packet_data["target_sid"] = helper.read_bytes(12)
         payload_length = helper.read(12)
-        packet_data["payload"] = helper.read(payload_length)
+        packet_data["payload"] = helper.read_bytes(payload_length)
         if packet_data["target_sid"] == own_sid:
             case = "MESSAGE_RECEIVED"
         else:
@@ -49,7 +49,7 @@ def parse_packet(packet, own_sid) -> ParseResult:
         logger.warning("Malformed Packet (Expected type 0-2, got %s)", packet_type)
         return ParseResult(action="DROP", reason="MALFORMED")
 
-    packet_data["signature"] = helper.read(512)
+    packet_data["signature"] = helper.read_bytes(64)
 
     if case == "RESPOND_TO_QUERY":
         return ParseResult(action="RESPOND_TO_QUERY", packet=QueryPacket(**packet_data))

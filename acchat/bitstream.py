@@ -13,6 +13,9 @@ class BitHelper:
     def change_offset(self, change: int):
         self.offset += change
 
+    def read_bytes(self, byte_amount: int) -> bytes:
+        return self.read(byte_amount * 8).to_bytes(byte_amount, "big")
+
 
 class BitWriter:
     def __init__(self):
@@ -31,4 +34,5 @@ class BitWriter:
 
     def to_bytes(self) -> bytes:
         byte_length = (self.length + 7) // 8
-        return self.data.to_bytes(byte_length, "big")
+        padding = byte_length * 8 - self.length
+        return (self.data << padding).to_bytes(byte_length, "big")
