@@ -1,29 +1,34 @@
 class BitHelper:
-    def __init__(self, data):
+    def __init__(self, data: bytes):
         self.data = int.from_bytes(data, "big")
         self.offset = 0
         self.length = len(data) * 8
 
-    def read(self, amount):
+    def read(self, amount: int) -> int:
         shift = self.length - self.offset - amount
         value = (self.data >> shift) & ((1 << amount) - 1)
         self.offset += amount
         return value
 
-    def write(self, value, amount):
+    def change_offset(self, change: int):
+        self.offset += change
+
+
+class BitWriter:
+    def __init__(self):
+        self.data = 0
+        self.length = 0
+
+    def write(self, value: int, amount: int):
         if value >= (1 << amount):
             raise ValueError(f"{value} does not fit into {amount} bits")
 
-        shift = self.length - self.offset - amount
-        mask = ((1 << amount) - 1) << shift
+        self.data = (self.data << amount) | value
+        self.length += amount
 
-        self.data &= ~mask
-        self.data |= value << shift
-
-        self.offset += amount
-
-    def change_offset(self, change):
-        self.offset += change
+    def write_bytes(self, data: bytes):
+        self.write(int.from_bytes(data, "big"), len(data) * 8)
 
     def to_bytes(self) -> bytes:
-        return self.data.to_bytes(self.length // 8, "big")
+        byte_length = (self.length + 7) // 8
+        return self.data.to_bytes(byte_length, "big")

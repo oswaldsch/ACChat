@@ -1,4 +1,4 @@
-from bitstream import BitHelper
+from bitstream import BitHelper, BitWriter
 from constants import PROTOCOL_VERSION
 from packets import ForwardPacket, Packet, ParseResult, QueryPacket, MessagePacket, QueryResponsePacket
 import logging
@@ -60,18 +60,20 @@ def parse_packet(packet, own_sid) -> ParseResult:
     elif case == "MESSAGE_RECEIVED":
         return ParseResult(action="RECEIVED", packet=MessagePacket(**packet_data))  # pyright: ignore[reportArgumentType]
 
-def decrease_ttl(packet) -> bytes | None:
+def decrease_ttl(packet: bytes) -> bytes | None:
     helper = BitHelper(packet)
 
     ttl = helper.read(5)
-
     if ttl == 0:
         return None
 
-    helper.change_offset(-5)
-    helper.write(ttl - 1, 5)
+    writer = BitWriter()
 
-    return helper.to_bytes()
+    writer.write(ttl - 1, 5)
+    remaining_bits = helper.length - helper.offset
+    writer.write(helper.read(remaining_bits), remaining_bits)
+
+    return writer.to_bytes()
 
 def forward_or_drop(packet: bytes, packet_data: dict):
     forwarded = decrease_ttl(packet)
