@@ -58,7 +58,7 @@ def parse_packet(packet, own_sid: bytes) -> ParseResult:
         return ParseResult(action="SAVE_QUERY", packet=QueryResponsePacket(**packet_data))
 
     elif case == "MESSAGE_RECEIVED":
-        return ParseResult(action="RECEIVED", packet=MessagePacket(**packet_data))  # pyright: ignore[reportArgumentType]
+        return ParseResult(action="RECEIVED", packet=MessagePacket(**packet_data))
 
 def decrease_ttl(packet: bytes) -> bytes | None:
     helper = BitHelper(packet)
