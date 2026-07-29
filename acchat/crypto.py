@@ -17,7 +17,7 @@ def sign_data(data: bytes, private_key: Ed25519PrivateKey):
 
 def check_signature(data: bytes, signature: bytes, public_key: Ed25519PublicKey):
     if len(signature) != 64:
-            return False
+        return False
     try:
         public_key.verify(signature, data)
         return True

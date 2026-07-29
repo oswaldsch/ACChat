@@ -8,6 +8,7 @@ class Packet:
     source_sid: bytes
     signature: bytes
     ttl: int
+    data: bytes
 
 
 @dataclass
@@ -27,6 +28,11 @@ class MessagePacket(Packet):
     payload: bytes
 
 @dataclass
+class DroppedPacket: # Make linter happy and maybe future use
+    data: bytes
+    reason: str
+
+@dataclass
 class ForwardPacket:
     data: bytes
     source_sid: bytes
@@ -35,5 +41,4 @@ class ForwardPacket:
 @dataclass
 class ParseResult:
     action: str
-    reason: str | None = None
-    packet: Packet | ForwardPacket | None = None
+    packet: Packet | ForwardPacket | DroppedPacket
