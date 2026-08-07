@@ -3,7 +3,7 @@ from .constants import PROTOCOL_VERSION
 from .packets import DroppedPacket, ForwardPacket, Packet, ParseResult, QueryPacket, MessagePacket, QueryResponsePacket
 import logging
 
-logger = logging.getLogger("ACChat.parser")
+logger = logging.getLogger("nodal.parser")
 
 def parse_packet(packet: bytes, own_sid: bytes) -> ParseResult:
     helper = BitHelper(packet)

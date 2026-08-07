@@ -44,7 +44,7 @@ Message[own="false"] QLabel {
 }
 """
 
-logger = logging.getLogger("ACChat.client")
+logger = logging.getLogger("nodal.client")
 
 class Message(QFrame):
     def __init__(self, content: str, sid: str | None = None):
@@ -91,7 +91,7 @@ class MessageArea(QScrollArea):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("ACChat PoC")
+        self.setWindowTitle("nodal PoC")
         self.setFixedSize(1300, 800)
         self.setStyleSheet(CHAT_STYLESHEET)
 
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout()
         central.setLayout(main_layout)
 
-        title = QLabel("ACChat Proof of Concept")
+        title = QLabel("nodal Proof of Concept")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 20pt; font-weight: bold;")
         main_layout.addWidget(title)

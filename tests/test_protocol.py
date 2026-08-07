@@ -1,5 +1,5 @@
-from acchat.constructor import construct_query_packet, construct_query_response_packet, construct_send_packet, append_signature
-from acchat.parser import parse_packet
+from nodal.constructor import construct_query_packet, construct_query_response_packet, construct_send_packet, append_signature
+from nodal.parser import parse_packet
 
 def test_query_packet_roundtrip():
     source_sid = b"\x01" * 12

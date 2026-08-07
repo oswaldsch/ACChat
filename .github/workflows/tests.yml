@@ -1,4 +1,4 @@
-name: ACChat Tests
+name: Nodal Tests
 
 on:
   push:
